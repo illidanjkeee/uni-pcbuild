@@ -1,0 +1,10 @@
+
+{
+"name": "Asus ROG STRIX B650-A GAMING WIFI",
+"price": 229.99,
+"socket": "AM5",
+"form_factor": "ATX",
+"max_memory": 192,
+"memory_slots": 4,
+"color": "Black / Silver"
+},
