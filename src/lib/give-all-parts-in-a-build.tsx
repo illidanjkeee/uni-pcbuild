@@ -14,12 +14,21 @@ import Fan from "@/schemas/server/fans-server-schema";
 import NetworkCard from "@/schemas/server/network-card-server-schema";
 import CpuCooler from "@/schemas/server/cpu-cooler-server-schema";
 
+/**
+ * Fetches all parts in a specified build by buildId
+ * @param buildId - The ID of the build to fetch parts for
+ * @returns Array of parts in the build or empty array if build not found
+ */
 export default async function giveAllPartsInAbuild(buildId: string) {
   try {
+    // Connect to the database
     await connectdb();
 
+    // Get the current authenticated user
     const user = await currentUser();
     let allPartsArray: any = [];
+    
+    // Fetch the specific build from the user's builds array using aggregation
     const builds = await User.aggregate([
       {
         $match: {
@@ -27,7 +36,7 @@ export default async function giveAllPartsInAbuild(buildId: string) {
         },
       },
       {
-        $unwind: "$builds", // Unwind the builds array
+        $unwind: "$builds", // Unwind the builds array to work with individual builds
       },
       {
         $match: {
@@ -36,13 +45,17 @@ export default async function giveAllPartsInAbuild(buildId: string) {
       },
       {
         $project: {
-          build: "$builds", // Project the matched build
+          build: "$builds", // Project only the matched build
         },
       },
     ]);
+    
+    // Return empty array if no build found
     if (builds.length === 0) {
       return [];
     }
+    
+    // Helper functions to find different part types and add them to allPartsArray
     const findCasePart = async (id: string) => {
       const res = await Case.findOne({ _id: new ObjectId(id) });
       await allPartsArray.push({ ...res._doc, partType: "case" });
@@ -93,11 +106,14 @@ export default async function giveAllPartsInAbuild(buildId: string) {
       await allPartsArray.push({ ...res._doc, partType: "cpu-cooler" });
     };
 
+    // Extract parts from the found build
     const parts = builds[0].build.parts;
 
+    // Process all parts in the build concurrently
     const loopOverBuildParts = async () => {
       await Promise.all(
         parts.map(async (element: any) => {
+          // Use appropriate finder function based on part type
           switch (element.partType) {
             case "Cpu":
               await findCpuPart(element.partId);
@@ -134,10 +150,13 @@ export default async function giveAllPartsInAbuild(buildId: string) {
       );
     };
 
+    // Execute part fetching
     await loopOverBuildParts();
 
+    // Return the array of all parts in the build
     return allPartsArray;
   } catch (error) {
+    // Log any errors that occur during the process
     console.log("ERROR WHILE FETCHING PARTS OF A BUILD :  ", error);
   }
 }
